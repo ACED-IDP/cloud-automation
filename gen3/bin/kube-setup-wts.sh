@@ -41,7 +41,7 @@ new_client() {
     "fence_base_url": "https://${hostname}/user/",
     "oidc_client_id": "$client_id",
     "oidc_client_secret": "$client_secret",
-
+    "aggregate_endpoint_allowlist": ["/authz/mapping"],
     "external_oidc": []
 }
 EOM
