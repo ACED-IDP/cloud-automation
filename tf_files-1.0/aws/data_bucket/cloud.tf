@@ -15,4 +15,5 @@ module "s3_bucket" {
   bucket_name       = var.bucket_name
   environment       = var.environment
   cloud_trail_count = var.cloud_trail_count
+  lifecycle_count   = "${var.lifecycle_count}"
 }

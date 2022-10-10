@@ -40,6 +40,29 @@ resource "aws_s3_bucket_lifecycle_configuration" "mybucket" {
   }
 }
 
+
+resource "aws_s3_bucket_lifecycle_configuration" "thirty_day_expiration" {
+  bucket = aws_s3_bucket.mybucket.id
+  count = var.lifecycle_count ? 1 : 0
+
+
+  rule {
+    id = "thirty_day_expiration"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 14
+    }
+
+    expiration {
+      days = 30
+    }
+
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_logging" "mybucket" {
   bucket        = aws_s3_bucket.mybucket.id
   target_bucket = module.cdis_s3_logs.log_bucket_name

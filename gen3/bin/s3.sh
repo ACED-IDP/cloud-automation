@@ -51,6 +51,35 @@ _tfplan_s3() {
 bucket_name="$bucketName"
 environment="$environmentName"
 cloud_trail_count="0"
+lifecycle_count="0"
+EOF
+  gen3 tfplan 2>&1
+}
+
+#
+# Util to tfplan creation of s3 bucket
+#
+# @param bucketName
+# @param environmentName
+#
+_tfplan_s3_internal() {
+  local internalBucketName=$1
+  local environmentName=$2
+
+  local futureRolePolicy="bucket_reader_${internalBucketName}"
+  if [ ${#futureRolePolicy} -gt 64 ];
+  then
+    local tmpn="${futureRolePolicy:0:64}"
+    bucketName="${tmpn//bucket_reader_}"
+  fi
+  gen3 workon default "${internalBucketName}_databucket"
+  gen3 cd
+
+  cat << EOF > config.tfvars
+bucket_name="$buckeinternalBucketNametName"
+environment="$environmentName"
+cloud_trail_count="0"
+lifecycle_count="0"
 EOF
   gen3 tfplan 2>&1
 }
@@ -134,13 +163,39 @@ EOF
     return 1
   fi
   
-  # if bucket already exists do nothing and exit
+  # if bucket already exists- check for its state file
   if [[ $(_bucket_exists $bucketName) -eq 0 ]]; then
-    gen3_log_info "Bucket already exists"
-    return 0
+    # checks for tf state
+    s3Path="s3://${GEN3_S3_BUCKET}/'${bucketName}_databucket'/terraform.tfstate" #how to say if this exists, do xyz because state only exists remotely
+    exists=gen3_aws_run aws s3 ls "${s3Path}"
+    gen3_log_info "s3 Path: ${s3Path}"
+  fi
+  # if no state exists, create a new workspace. 
+  if [[ -z "$exists" ]]; then
+    gen3_log_info "No terraform state for bucket. Creating a new workspace."
+    # use the workon script to create a new workspace
+    gen3 workon default '${bucketName}_databucket'
+    # now that workspace is created, import the bucket. 
+    terraform import module.'${bucketName}_databucket'.aws_s3_bucket.mybucket $bucketName 
+
+    # run a plan and apply
+    _tfplan_s3_internal $bucketName $environmentName
+    if [[ $? != 0 ]]; then
+      return 1
+    fi
+    _tfapply_s3
+    if [[ $? != 0 ]]; then
+      gen3_log_info "let's try that again ..."
+      _tfplan_s3 $bucketName $environmentName
+      _tfapply_s3 || return 1
+    fi
+    if [[ $cloudtrailFlag =~ ^.*add-cloudtrail$ ]]; then
+      _add_bucket_to_cloudtrail $bucketName $environmentName
+    fi
   fi
 
-  _tfplan_s3 $bucketName $environmentName
+# if state does exist, run the plan and apply to update state. 
+  _tfplan_s3_internal $bucketName $environmentName
   if [[ $? != 0 ]]; then
     return 1
   fi
@@ -153,6 +208,77 @@ EOF
 
   if [[ $cloudtrailFlag =~ ^.*add-cloudtrail$ ]]; then
     _add_bucket_to_cloudtrail $bucketName $environmentName
+  fi
+}
+
+#
+# Create a new s3 internal bucket (for Argo)
+#
+# @param bucketName
+# @param cloudtrailFlag (--add-cloudtrail)
+#
+gen3_s3_create_internal() {
+  local InternalBucketName=$1
+  local cloudtrailFlag=$2
+  local environmentName="${vpc_name:-$(g3kubectl get configmap global -o jsonpath="{.data.environment}")}"
+
+  # do simple validation of bucket name
+  local regexp="^[a-z][a-z0-9\-]*$"
+  if [[ ! $InternalBucketName =~ $regexp ]];then
+    local errMsg=$(cat << EOF
+ERROR: Bucket name does not meet the following requirements:
+  - starts with a-z
+  - contains only a-z, 0-9, and dashes, "-"
+EOF
+    )
+    gen3_log_err $errMsg
+    return 1
+  fi
+  # if bucket already exists- check for its state file
+  if [[ $(_bucket_exists $InternalBucketName) -eq 0 ]]; then
+  # checks for tf state
+    s3Path="s3://${GEN3_S3_BUCKET}/'${bucketName}_databucket'/terraform.tfstate" #how to say if this exists, do xyz because state only exists remotely
+    exists=gen3_aws_run aws s3 ls "${s3Path}"
+    gen3_log_info "s3 Path: ${s3Path}"
+  fi
+  # if no state exists, create a new workspace. 
+  if [[ -z "$exists" ]]; then
+    gen3_log_info "No terraform state for bucket. Creating a new workspace."
+    # use the workon script to create a new workspace
+    gen3 workon default '${bucketName}_databucket'
+    # now that workspace is created, import the bucket. 
+    terraform import module.'${bucketName}_databucket'.aws_s3_bucket.mybucket $InternalBucketName 
+
+    # run a plan and apply
+    _tfplan_s3_internal $InternalBucketName $environmentName
+    if [[ $? != 0 ]]; then
+      return 1
+    fi
+    _tfapply_s3
+    if [[ $? != 0 ]]; then
+      gen3_log_info "let's try that again ..."
+      _tfplan_s3 $InternalBucketName $environmentName
+      _tfapply_s3 || return 1
+    fi
+    if [[ $cloudtrailFlag =~ ^.*add-cloudtrail$ ]]; then
+      _add_bucket_to_cloudtrail $InternalBucketName $environmentName
+    fi
+  fi
+
+# if state does exist, run the plan and apply to update state. 
+  _tfplan_s3_internal $InternalBucketName $environmentName
+  if [[ $? != 0 ]]; then
+    return 1
+  fi
+  _tfapply_s3
+  if [[ $? != 0 ]]; then
+    gen3_log_info "let's try that again ..."
+    _tfplan_s3 $InternalBucketName $environmentName
+    _tfapply_s3 || return 1
+  fi
+
+  if [[ $cloudtrailFlag =~ ^.*add-cloudtrail$ ]]; then
+    _add_bucket_to_cloudtrail $InternalBucketName $environmentName
   fi
 }
 
