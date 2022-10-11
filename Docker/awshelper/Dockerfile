@@ -82,6 +82,9 @@ RUN curl -o /tmp/terraform.zip https://releases.hashicorp.com/terraform/0.11.15/
 RUN curl -o /tmp/terraform.zip https://releases.hashicorp.com/terraform/0.12.31/terraform_0.12.31_linux_amd64.zip \
    && unzip /tmp/terraform.zip -d /tmp && mv /tmp/terraform /usr/local/bin/terraform12 && /bin/rm /tmp/terraform.zip
 
+RUN curl -o /tmp/terraform1.2.zip https://releases.hashicorp.com/terraform/1.2.3/terraform_1.2.3_linux_amd64.zip \
+    &&  unzip /tmp/terraform1.2.zip -d /tmp && mv /tmp/terraform /usr/local/bin/terraform1.2
+
 RUN useradd -m -s /bin/bash ubuntu && \
     ( echo "ubuntu:gen3" | chpasswd )
 
