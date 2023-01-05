@@ -1,14 +1,14 @@
 #Automatically generated from a corresponding variables.tf on 2022-07-28 12:08:31.473975
 
 #The name of the VPC for this commons
-vpc_name = "Commons1"
+vpc_name = \\"$GEN3_WORKSPACE\\"
 
 #The CIDR block to allocate to the VPC for this commons
-vpc_cidr_block = "172.24.17.0/20"
+vpc_cidr_block="172.0.0.0/20"
 
 #A secondary CIDR block to allocate to the VPC for this commons, in case  of network expansion
-secondary_cidr_block = false
-
+secondary_cidr_block = ""
+ 
 #The type(s) of traffic covered by flow logs
 vpc_flow_traffic = "ALL"
 
@@ -18,9 +18,12 @@ aws_region = "us-east-1"
 #An AWS ARN for the certificate to use on the Load Balancer in front of the commons. Because all access to a commons is through HTTPS, this is required
 aws_cert_name = "AWS-CERTIFICATE-NAME"
 
-#
-#TODO Figure out how to explain this
-csoc_account_id = "433568766270"
+# Object folder of user.yaml file - ex: s3://cdis-gen3-users/${config_folder}/user.yaml
+config_folder = "dev"
+
+
+# if you have a CSOC account id, this is where you put that n.
+csoc_account_id = ""
 
 #The CIDR of the VPC from which the commands to bring up this commons are being run; this will enable access
 peering_cidr = "10.128.0.0/20"
@@ -34,26 +37,32 @@ sheepdog_db_size = 10
 #The size of the indexd DB, in GiB
 indexd_db_size = 10
 
-#The password for the fence DB
-db_password_fence= ""
-
-#The password for the gdcapi DB
-db_password_gdcapi = ""
 
 #This indexd guid prefix should come from Trevar/ZAC
 indexd_prefix = "dg.XXXX/"
 
+hmac_encryption_key=\\"$(random_alphanumeric 32 | base64)\\"
+gdcapi_secret_key=\\"$(random_alphanumeric 50)\\"
+
+# don't use ( ) " ' { } < > @ ind
+#The password for the fence DB
+db_password_fence= \\"$(random_alphanumeric 32)\\"
 #The password for the peregrine DB
-db_password_peregrine= ""
-
+db_password_peregrine=\\"$(random_alphanumeric 32)\\"
 #The password for the sheepdog DB
-db_password_sheepdog= ""
-
+sheepdog_pass="$(random_alphanumeric 32)"; 	# donotprint - bash variable 
+db_password_sheepdog=\\"$sheepdog_pass\\" 	# Need to double escape quotes 
+#The password for the gdcapi DB
+db_password_gdcapi=\\"$sheepdog_pass\\" 	# need to double escape quotes for templating
 #The password for the indexd DB
-db_password_indexd= ""
+db_password_indexd=\\"$(random_alphanumeric 32)\\" # need to double escape quotes for templating 
+
+# password for write access to indexd
+gdcapi_indexd_password=\\"$(random_alphanumeric 32)\\"
+
 
 #The URL for the data dictionary schema. It must be in JSON format. For more info, see: https://gen3.org/resources/user/dictionary/
-dictionary_url= ""
+dictionary_url="https://s3.amazonaws.com/dictionary-artifacts/YOUR/DICTIONARY/schema.json"
 
 #A configuration to specify a customization profile for the the commons' front-end
 portal_app = "dev"
@@ -86,7 +95,7 @@ sheepdog_db_instance = "db.t3.small"
 indexd_db_instance = "db.t3.small"
 
 #Hostname that the commons will use for access; i.e. the URL that people will use to access the commons over the internet
-hostname = "dev.bionimbus.org"
+hostname = "YOUR.HOSTNAME"
 
 #A list of SSH keys that will be added to compute resources deployed by this module, including Squid proxy instances
 kube_ssh_key= ""
